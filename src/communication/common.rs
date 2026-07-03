@@ -44,7 +44,13 @@ pub struct HttpClient {
 
 impl HttpClient {
     pub(crate) async fn negotiate(options: ConnectionConfiguration) -> Result<ConnectionData, String> {
-        let negotiate_endpoint = format!("{}/negotiate?negotiateVersion=1", options.get_web_url());
+        let web_url = options.get_web_url();
+        let negotiate_endpoint = if web_url.contains('?') {
+            let (base, query) = web_url.split_once('?').unwrap();
+            format!("{base}/negotiate?{query}&negotiateVersion=1")
+        } else {
+            format!("{web_url}/negotiate?negotiateVersion=1")
+        };
         let protocol_kind = options.get_protocol_kind();
         let authentication = options.get_authentication();
         let json_text = HttpClient::post_text(negotiate_endpoint.clone(), authentication.clone()).await;
@@ -78,7 +84,13 @@ impl HttpClient {
             .is_some();
 
         if fit {
-            let mut full_endpoint = format!("{}{}", endpoint, negotiate.endpoint_query());
+            // Merge negotiate query params with any existing query string in the endpoint.
+            let negotiate_query = negotiate.endpoint_query();
+            let mut full_endpoint = if endpoint.contains('?') {
+                format!("{}&{}", endpoint, &negotiate_query[1..])
+            } else {
+                format!("{}{}", endpoint, negotiate_query)
+            };
 
             // Browsers cannot set custom headers on WebSocket connections.
             // Append the bearer token as a query parameter per the SignalR convention.

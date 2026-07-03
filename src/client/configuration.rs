@@ -26,6 +26,7 @@ pub struct ConnectionConfiguration {
     _disconnection: Option<Box<dyn DisconnectionHandler>>,
     _reconnection: ReconnectionConfig,
     _protocol: HubProtocolKind,
+    _query_string: String,
 }
 
 impl ConnectionConfiguration {
@@ -39,6 +40,7 @@ impl ConnectionConfiguration {
             _disconnection: None,
             _reconnection: ReconnectionConfig::default(),
             _protocol: HubProtocolKind::default(),
+            _query_string: String::new(),
         }
     }
 
@@ -195,11 +197,21 @@ impl ConnectionConfiguration {
     }
 
     pub(crate) fn get_web_url(&self) -> String {
-        format!("{}://{}/{}", self.get_http_schema(), self.get_domain(), self._hub)
+        let base = format!("{}://{}/{}", self.get_http_schema(), self.get_domain(), self._hub);
+        if self._query_string.is_empty() {
+            base
+        } else {
+            format!("{}?{}", base, self._query_string)
+        }
     }
 
     pub(crate) fn get_socket_url(&self) -> String {
-        format!("{}://{}/{}", self.get_socket_schema(), self.get_domain(), self._hub)
+        let base = format!("{}://{}/{}", self.get_socket_schema(), self.get_domain(), self._hub);
+        if self._query_string.is_empty() {
+            base
+        } else {
+            format!("{}?{}", base, self._query_string)
+        }
     }
 
     pub(crate) fn get_authentication(&self) -> Authentication {
@@ -264,6 +276,16 @@ impl ConnectionConfiguration {
     #[cfg(feature = "messagepack")]
     pub fn with_messagepack_protocol(&mut self) -> &ConnectionConfiguration {
         self._protocol = HubProtocolKind::MessagePack;
+        self
+    }
+
+    /// Sets a custom query string appended to the negotiate and WebSocket URLs.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - A `String` specifying the query string (e.g. "role=agent").
+    pub fn with_query_string(&mut self, query: String) -> &ConnectionConfiguration {
+        self._query_string = query;
         self
     }
 
