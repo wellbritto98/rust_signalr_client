@@ -122,6 +122,42 @@ impl HttpClient {
         format!("Basic {}", &ret)
     }
 
+    /// Native: usa reqwest com `danger_accept_invalid_certs` (dev/self-signed).
+    /// WASM: mantém ehttp (o browser gerencia TLS).
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn post_text(endpoint: String, authentication: Authentication) -> Result<String, String> {
+        let client = reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .build()
+            .map_err(|e| format!("The call failed: {e}"))?;
+
+        let mut request = client.post(&endpoint);
+
+        match authentication {
+            Authentication::None => {}
+            Authentication::Basic { user, password } => {
+                request = request.header(
+                    "Authorization",
+                    HttpClient::basic_auth(user, password),
+                );
+            }
+            Authentication::Bearer { token } => {
+                request = request.header("Authorization", format!("Bearer {}", token));
+            }
+        }
+
+        let response = request
+            .send()
+            .await
+            .map_err(|e| format!("The call failed: {e}"))?;
+
+        response
+            .text()
+            .await
+            .map_err(|e| format!("The call failed: {e}"))
+    }
+
+    #[cfg(target_arch = "wasm32")]
     pub async fn post_text(endpoint: String, authentication: Authentication) -> Result<String, String> {
         let (s, r) = futures::channel::oneshot::channel::<Result<String, String>>();
 
